@@ -23,6 +23,7 @@ export interface HourlyReading {
   coldFeelsLikeC: number;
   coldLevel: StageLevel;
   rn1mm: number;
+  sky?: number;
   rainLevel: StageLevel;
   snowLevel: StageLevel;
 }
@@ -54,7 +55,8 @@ export function useReading() {
         const provider = providerRef.current;
         const now = await provider.getNow(lat, lon);
         if (id !== reqId.current) return;
-        const r = computeReading(now, label, mode);
+        const queriedNow = { ...now, observedAt: new Date() };
+        const r = computeReading(queriedNow, label, mode);
         setReading(r);
         setHourly([]);
 
@@ -84,6 +86,7 @@ export function useReading() {
                 coldFeelsLikeC: coldFeels,
                 coldLevel,
                 rn1mm: p.rn1mm,
+                sky: p.sky,
                 rainLevel,
                 snowLevel,
               };
