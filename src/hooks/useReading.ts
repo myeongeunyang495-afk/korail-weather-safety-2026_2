@@ -7,11 +7,23 @@ import {
   classifyHeat,
   classifyRain,
   classifySnow,
+  type HazardKind,
   type StageLevel,
 } from "../lib/stages";
 import { getBestPosition, reverseGeocode } from "../lib/geolocation";
 
 export type { ViewMode } from "../lib/reading";
+
+export interface WeatherWarning {
+  id: string;
+  hazard: HazardKind;
+  level: "warning" | "danger";
+  title: string;
+  regions: string[];
+  issuedAt?: string | null;
+  effectiveAt?: string | null;
+  text?: string;
+}
 
 export interface HourlyReading {
   time: Date;
@@ -34,12 +46,20 @@ interface LastQuery {
   label: string;
 }
 
-const DEFAULT_LOCATION = { lat: 37.5665, lon: 126.978, label: "서울특별시 중구 (기본 위치)" };
+const DEFAULT_LOCATION = { lat: 37.5665, lon: 126.978, label: "\uC11C\uC6B8\uD2B9\uBCC4\uC2DC \uC911\uAD6C (\uAE30\uBCF8 \uC704\uCE58)" };
+
+async function fetchWarnings(): Promise<WeatherWarning[]> {
+  const res = await fetch("/api/warnings");
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data.warnings) ? data.warnings : [];
+}
 
 export function useReading() {
   const providerRef = useRef(createWeatherProvider());
   const [reading, setReading] = useState<Reading | null>(null);
   const [hourly, setHourly] = useState<HourlyReading[]>([]);
+  const [warnings, setWarnings] = useState<WeatherWarning[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const reqId = useRef(0);
@@ -59,6 +79,14 @@ export function useReading() {
         const r = computeReading(queriedNow, label, mode);
         setReading(r);
         setHourly([]);
+
+        fetchWarnings()
+          .then((items) => {
+            if (id === reqId.current) setWarnings(items);
+          })
+          .catch(() => {
+            if (id === reqId.current) setWarnings([]);
+          });
 
         provider
           .getHourly(lat, lon)
@@ -97,7 +125,7 @@ export function useReading() {
             // Forecast failure should not block the current observation view.
           });
       } catch {
-        if (id === reqId.current) setError("날씨 조회에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        if (id === reqId.current) setError("\uB0A0\uC528 \uC870\uD68C\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4. \uC7A0\uC2DC \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD574\uC8FC\uC138\uC694.");
       } finally {
         if (id === reqId.current) setLoading(false);
       }
@@ -111,15 +139,10 @@ export function useReading() {
       setError(null);
       try {
         const { lat, lon } = await getBestPosition();
-        const label = await reverseGeocode(lat, lon).catch(() => "현재 위치");
+        const label = await reverseGeocode(lat, lon).catch(() => "\uD604\uC7AC \uC704\uCE58");
         await queryByCoords(lat, lon, label, mode);
       } catch {
-        await queryByCoords(
-          DEFAULT_LOCATION.lat,
-          DEFAULT_LOCATION.lon,
-          DEFAULT_LOCATION.label,
-          mode,
-        );
+        await queryByCoords(DEFAULT_LOCATION.lat, DEFAULT_LOCATION.lon, DEFAULT_LOCATION.label, mode);
       }
     },
     [queryByCoords],
@@ -136,5 +159,5 @@ export function useReading() {
     [queryByCoords, queryByGps],
   );
 
-  return { reading, hourly, loading, error, queryByCoords, queryByGps, refresh };
+  return { reading, hourly, warnings, loading, error, queryByCoords, queryByGps, refresh };
 }
