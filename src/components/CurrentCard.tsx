@@ -1,5 +1,4 @@
-﻿import { useState, type CSSProperties } from "react";
-import { Thermometer } from "./Thermometer";
+import { useState, type CSSProperties } from "react";
 import { ShareSheet } from "./ShareSheet";
 import { getStageMeta, HAZARD_LABEL } from "../data/stageContent";
 import { formatObservedAt, formatTemp } from "../lib/format";
@@ -28,6 +27,8 @@ const HAZARD_STAGE_KEY: Record<HazardKind, keyof Pick<HourlyReading, "heatLevel"
   snow: "snowLevel",
   cold: "coldLevel",
 };
+
+type WeatherVisual = "sunny" | "cloudy" | "rain" | "snow" | "heat";
 
 function maxLevel(levels: StageLevel[]): StageLevel {
   return levels.reduce<StageLevel>((max, level) => (STAGE_RANK[level] > STAGE_RANK[max] ? level : max), "normal");
@@ -80,7 +81,7 @@ function WeatherFocus({ reading, hourly, onOpenSafety, onOpenForecast }: { readi
       level !== "normal"
         ? forecastItems.find((item) => item.level === level)?.time ?? reading.observedAt
         : reading.observedAt;
-    return { level, date, active: level !== "normal" };
+    return { level, date };
   };
 
   return (
@@ -111,30 +112,77 @@ function WeatherFocus({ reading, hourly, onOpenSafety, onOpenForecast }: { readi
   );
 }
 
-function RainDrop({ color }: { color: string }) {
-  return (
-    <svg className="thermo" width="44" height="96" viewBox="0 0 44 96" aria-hidden="true">
-      <path d="M22 18 C22 18 38 46 38 63 a16 16 0 1 1 -32 0 C6 46 22 18 22 18 Z" fill={color} opacity="0.16" />
-      <path d="M22 30 C22 30 33 50 33 64 a11 11 0 1 1 -22 0 C11 50 22 30 22 30 Z" fill={color} style={{ transition: "fill var(--dur)" }} />
-      <path d="M16.5 62 a5.5 5.5 0 0 0 4 4.6" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.75" />
-    </svg>
-  );
+function isRainPty(pty: number) {
+  return [1, 2, 5, 6].includes(pty);
 }
 
-function SnowFlake({ color }: { color: string }) {
+function isSnowPty(pty: number) {
+  return [2, 3, 6, 7].includes(pty);
+}
+
+function nearestSky(hourly: HourlyReading[]) {
+  return hourly.find((h) => Number.isFinite(h.sky))?.sky;
+}
+
+function getWeatherVisual(reading: Reading, hourly: HourlyReading[]): WeatherVisual {
+  if (isSnowPty(reading.pty) || reading.primaryHazard === "snow") return "snow";
+  if (reading.rn1mm > 0 || isRainPty(reading.pty) || (reading.primaryHazard === "rain" && reading.primaryLevel !== "normal")) return "rain";
+  if (reading.primaryHazard === "heat" && reading.primaryLevel !== "normal") return "heat";
+  const sky = nearestSky(hourly);
+  if (sky === 3 || sky === 4) return "cloudy";
+  return "sunny";
+}
+
+function weatherLabel(kind: WeatherVisual) {
+  if (kind === "rain") return "비";
+  if (kind === "snow") return "눈";
+  if (kind === "heat") return "폭염";
+  if (kind === "cloudy") return "흐림";
+  return "맑음";
+}
+
+function WeatherConditionIcon({ kind }: { kind: WeatherVisual }) {
+  const showSun = kind === "sunny" || kind === "heat";
+  const showCloud = kind === "cloudy" || kind === "rain" || kind === "snow";
   return (
-    <svg className="thermo" width="44" height="96" viewBox="0 0 44 96" aria-hidden="true">
-      <g stroke={color} strokeWidth="3" strokeLinecap="round" transform="translate(22,48)" style={{ transition: "stroke var(--dur)" }}>
-        {[0, 60, 120].map((a) => (
-          <line key={a} x1="0" y1="-21" x2="0" y2="21" transform={`rotate(${a})`} />
-        ))}
-        {[0, 60, 120, 180, 240, 300].map((a) => (
-          <g key={a} transform={`rotate(${a})`}>
-            <line x1="0" y1="-21" x2="-6" y2="-14" />
-            <line x1="0" y1="-21" x2="6" y2="-14" />
-          </g>
-        ))}
-      </g>
+    <svg className={`weather-icon weather-icon--${kind}`} viewBox="0 0 96 96" role="img" aria-label={weatherLabel(kind)}>
+      {showSun && (
+        <g className="weather-icon__sun">
+          <circle cx="48" cy="43" r={kind === "heat" ? 22 : 18} />
+          {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => (
+            <line key={a} x1="48" y1="10" x2="48" y2="0" transform={`rotate(${a} 48 48)`} />
+          ))}
+        </g>
+      )}
+      {showCloud && (
+        <g className="weather-icon__cloud">
+          <ellipse cx="42" cy="52" rx="23" ry="15" />
+          <circle cx="31" cy="48" r="13" />
+          <circle cx="49" cy="41" r="18" />
+          <circle cx="64" cy="52" r="14" />
+          <rect x="25" y="52" width="51" height="16" rx="8" />
+        </g>
+      )}
+      {kind === "rain" && (
+        <g className="weather-icon__rain">
+          <line x1="34" y1="75" x2="30" y2="86" />
+          <line x1="49" y1="75" x2="45" y2="88" />
+          <line x1="64" y1="75" x2="60" y2="86" />
+        </g>
+      )}
+      {kind === "snow" && (
+        <g className="weather-icon__snow">
+          {[34, 50, 66].map((x) => (
+            <g key={x} transform={`translate(${x} 82)`}>
+              <line x1="-5" y1="0" x2="5" y2="0" />
+              <line x1="0" y1="-5" x2="0" y2="5" />
+              <line x1="-4" y1="-4" x2="4" y2="4" />
+              <line x1="-4" y1="4" x2="4" y2="-4" />
+            </g>
+          ))}
+        </g>
+      )}
+      {kind === "sunny" && <path className="weather-icon__small-cloud" d="M52 67h24a8 8 0 0 0 0-16 12 12 0 0 0-22-5 10 10 0 0 0-2 21Z" />}
     </svg>
   );
 }
@@ -145,6 +193,7 @@ export function CurrentCard({ reading, hourly, loading, error, onGps, onToggleFa
   const isRain = reading?.primaryHazard === "rain";
   const isSnow = reading?.primaryHazard === "snow";
   const isPrecip = isRain || isSnow;
+  const weatherVisual = reading ? getWeatherVisual(reading, hourly) : "sunny";
   const amountText = reading
     ? reading.rn1mm < 10
       ? reading.rn1mm.toFixed(1)
@@ -178,7 +227,7 @@ export function CurrentCard({ reading, hourly, loading, error, onGps, onToggleFa
       {reading && meta && (
         <>
           <div className="current__hero">
-            {isSnow ? <SnowFlake color={meta.color} /> : isRain ? <RainDrop color={meta.color} /> : <Thermometer color={meta.color} feelsLikeC={reading.feelsLikeC} />}
+            <WeatherConditionIcon kind={weatherVisual} />
             <div className="current__big">
               <div className="current__feel">
                 {isPrecip ? (
@@ -191,6 +240,7 @@ export function CurrentCard({ reading, hourly, loading, error, onGps, onToggleFa
                 )}
               </div>
               <div className="current__feel-cap">{isPrecip ? amountCap : "체감온도"}</div>
+              <div className="current__weather-label">{weatherLabel(weatherVisual)}</div>
             </div>
           </div>
 
@@ -229,10 +279,3 @@ export function CurrentCard({ reading, hourly, loading, error, onGps, onToggleFa
     </section>
   );
 }
-
-
-
-
-
-
-
