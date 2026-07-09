@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BrandHeader } from "./components/BrandHeader";
 import { CurrentCard } from "./components/CurrentCard";
 import { RegionPicker } from "./components/RegionPicker";
@@ -19,7 +19,7 @@ export default function App() {
   const [forecastHazard, setForecastHazard] = useState<HazardKind | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(true);
 
-  const { reading, hourly, loading, error, queryByCoords, queryByGps } = useReading();
+  const { reading, hourly, warnings, loading, error, queryByCoords, queryByGps } = useReading();
   const favorites = useFavorites();
 
   const booted = useRef(false);
@@ -55,6 +55,7 @@ export default function App() {
               <CurrentCard
                 reading={reading}
                 hourly={hourly}
+                warnings={warnings}
                 loading={loading}
                 error={error}
                 onGps={() => queryByGps("auto")}
@@ -95,6 +96,7 @@ export default function App() {
           {tab === "forecast" && (
             <HourlyForecast
               hourly={hourly}
+              warnings={warnings}
               reading={reading}
               loading={loading}
               hazardOverride={forecastHazard}
@@ -118,4 +120,3 @@ export default function App() {
     </div>
   );
 }
-
