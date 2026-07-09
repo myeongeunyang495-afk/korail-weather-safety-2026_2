@@ -8,6 +8,7 @@ interface NowResponse {
   wind?: number;
   rn1?: number;
   pty?: number;
+  sky?: number;
   base?: { date: string; time: string };
   grid?: { x: number; y: number };
 }
@@ -19,6 +20,7 @@ interface HourlyResponse {
     humidity?: number;
     wind?: number;
     pty?: number;
+    sky?: number;
     rn1?: number;
   }>;
 }
@@ -49,6 +51,7 @@ export function createKmaProvider(): WeatherProvider {
         windMs: Number.isFinite(data.wind) ? (data.wind as number) : 0,
         rn1mm: Number.isFinite(data.rn1) ? (data.rn1 as number) : 0,
         pty: Number.isFinite(data.pty) ? (data.pty as number) : 0,
+        sky: Number.isFinite(data.sky) ? (data.sky as number) : undefined,
         observedAt: parseBaseDate(data.base),
         source: "kma",
         grid: data.grid,
@@ -71,6 +74,7 @@ export function createKmaProvider(): WeatherProvider {
         humidityPct: Number.isFinite(p.humidity) ? (p.humidity as number) : Number.NaN,
         windMs: Number.isFinite(p.wind) ? (p.wind as number) : Number.NaN,
         pty: Number.isFinite(p.pty) ? (p.pty as number) : 0,
+        sky: Number.isFinite(p.sky) ? (p.sky as number) : undefined,
         rn1mm: Number.isFinite(p.rn1) ? (p.rn1 as number) : 0,
       }));
     },
