@@ -1,12 +1,3 @@
-/**
- * KMA weather proxy for Netlify Functions.
- *
- * - GET /api/weather?lat&lon              -> current ultra-short observation
- * - GET /api/weather?lat&lon&mode=hourly  -> hourly ultra-short forecast
- *
- * KMA_SERVICE_KEY must be stored only in Netlify environment variables.
- */
-
 const NCST = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst";
 const FCST = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtFcst";
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
@@ -88,6 +79,7 @@ async function fetchHourly(key, grid) {
         else if (it.category === "REH") cur.humidity = v;
         else if (it.category === "WSD") cur.wind = v;
         else if (it.category === "PTY") cur.pty = Number.isFinite(v) ? v : 0;
+        else if (it.category === "SKY") cur.sky = Number.isFinite(v) ? v : undefined;
         else if (it.category === "RN1") cur.rn1 = parseRn1(it.fcstValue);
         byTime.set(t, cur);
       }
@@ -99,6 +91,7 @@ async function fetchHourly(key, grid) {
           humidity: c.humidity,
           wind: c.wind,
           pty: c.pty ?? 0,
+          sky: c.sky,
           rn1: c.rn1 ?? 0,
         }))
         .filter((p) => Number.isFinite(p.temp));
