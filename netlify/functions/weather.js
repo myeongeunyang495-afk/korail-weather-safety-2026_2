@@ -1,4 +1,4 @@
-const NCST = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst";
+﻿const NCST = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst";
 const VILAGE = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst";
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
@@ -79,6 +79,8 @@ async function fetchDailyForecast(key, grid) {
         const cur = byTime.get(t) || {};
         const v = Number(it.fcstValue);
         if (it.category === "TMP") setIfMissing(cur, "temp", v);
+        else if (it.category === "TMX") setMax(cur, "temp", v);
+        else if (it.category === "TMN") setIfMissing(cur, "temp", v);
         else if (it.category === "REH") setIfMissing(cur, "humidity", v);
         else if (it.category === "WSD") setIfMissing(cur, "wind", v);
         else if (it.category === "PTY") setIfMissing(cur, "pty", Number.isFinite(v) ? v : 0);
@@ -123,6 +125,11 @@ function fillPoint(points, idx) {
 function setIfMissing(target, field, value) {
   if (Number.isFinite(target[field])) return;
   if (Number.isFinite(value)) target[field] = value;
+}
+
+function setMax(target, field, value) {
+  if (!Number.isFinite(value)) return;
+  if (!Number.isFinite(target[field]) || value > target[field]) target[field] = value;
 }
 
 function nearestWith(points, idx, field) {
