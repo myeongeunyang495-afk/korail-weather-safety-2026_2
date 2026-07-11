@@ -28,6 +28,48 @@ export interface HourlyReading {
   snowLevel: StageLevel;
 }
 
+function sameHour(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate() &&
+    a.getHours() === b.getHours()
+  );
+}
+
+function currentHourReading(r: Reading): HourlyReading {
+  const heatFeels = computeFeelsLike(
+    { tempC: r.tempC, humidityPct: r.humidityPct, windMs: r.windMs },
+    "summer",
+  );
+  const coldFeels = computeFeelsLike(
+    { tempC: r.tempC, humidityPct: r.humidityPct, windMs: r.windMs },
+    "winter",
+  );
+  const heatLevel = classifyHeat(heatFeels);
+  const coldLevel = classifyCold(coldFeels);
+
+  return {
+    time: r.observedAt,
+    tempC: r.tempC,
+    feelsLikeC: r.feelsLikeC,
+    level: r.model === "winter" ? coldLevel : heatLevel,
+    heatFeelsLikeC: heatFeels,
+    heatLevel,
+    coldFeelsLikeC: coldFeels,
+    coldLevel,
+    rn1mm: r.rn1mm,
+    rainLevel: classifyRain({ rn1mm: r.rn1mm, pty: r.pty }),
+    snowLevel: classifySnow({ snoCm: r.rn1mm, pty: r.pty }),
+  };
+}
+
+function mergeCurrentHour(items: HourlyReading[], current: HourlyReading) {
+  return [...items.filter((item) => !sameHour(item.time, current.time)), current].sort(
+    (a, b) => a.time.getTime() - b.time.getTime(),
+  );
+}
+
 interface LastQuery {
   lat: number;
   lon: number;
@@ -90,7 +132,7 @@ export function useReading() {
               snowLevel,
             };
           });
-          setHourly(mapped);
+          setHourly(mergeCurrentHour(mapped, currentHourReading(r)));
         });
       } catch {
         if (id === reqId.current) setError("\uB0A0\uC528 \uC870\uD68C\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4. \uC7A0\uC2DC \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD574\uC8FC\uC138\uC694.");
